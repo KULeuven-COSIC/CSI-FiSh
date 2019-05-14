@@ -1,0 +1,42 @@
+
+To build with default parameters, simply run "make".
+
+The build may be configured with other arguments:
+
+- BITS is one of the supported parameter sets.
+- UINT_IMPL is an unsigned integer implementation.
+- FP_IMPL is a finite field implementation.
+
+For example,
+
+    make BITS=1024
+
+builds the code with a 1024-bit parameter set, and
+
+    make UINT_IMPL=uint.c FP_IMPL=fp.c
+
+uses generic C arithmetic instead of assembly.
+
+
+Other parameter sets may be used by creating a
+directory modelled after the p512/ and p1024/
+folders, optionally including specialized uint.s
+and fp.s files for assembly arithmetic.  Else
+the generic C implementation will be used.
+
+
+To build the benchmark code, run "make bench"; it
+also supports the arguments listed above.
+To configure benchmarking, use the following options:
+
+- BENCH_ITS is the number of iterations.
+- BENCH_VAL benchmarks public-key validation.
+- BENCH_ACT benchmarks the group action.
+
+For example,
+
+    make bench BENCH_ITS=1000 BENCH_ACT=1 BENCH_VAL=0
+
+builds a benchmark for 1000 iterations of the group
+action without public-key validation.
+
