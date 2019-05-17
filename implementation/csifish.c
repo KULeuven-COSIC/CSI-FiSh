@@ -57,7 +57,7 @@ void csifish_keygen(unsigned char *pk, unsigned char *sk){
 	#endif
 }
 
-void get_challenges(const unsigned char *hash, uint16_t *challenges){
+void get_challenges(const unsigned char *hash, uint32_t *challenges_index, uint8_t *challenges_sign){
 	unsigned char tmp_hash[SEED_BYTES];
 	memcpy(tmp_hash,hash,SEED_BYTES);
 
@@ -67,11 +67,12 @@ void get_challenges(const unsigned char *hash, uint16_t *challenges){
 	}
 
 	// generate pseudorandomness
-	EXPAND(tmp_hash,SEED_BYTES,(unsigned char *) challenges,sizeof(uint16_t)*ROUNDS);
+	EXPAND(tmp_hash,SEED_BYTES,(unsigned char *) challenges_index,sizeof(uint32_t)*ROUNDS);
 
-	// zero out higher order bits
+	// set sign bit and zero out higher order bits
 	for(int i=0; i<ROUNDS; i++){
-		challenges[i] &= (((uint16_t) 1)<<PK_TREE_DEPTH)-1;
+		challenges_sign[i] = (challenges_index[i] >> PK_TREE_DEPTH) & 1;
+		challenges_index[i] &= (((uint16_t) 1)<<PK_TREE_DEPTH)-1;
 	}
 }
 
@@ -126,8 +127,9 @@ void csifish_sign(const unsigned char *sk,const unsigned char *m, uint64_t mlen,
 	#endif
 
 	// get challenges
-	uint16_t challenges[ROUNDS];
-	get_challenges(master_hash,challenges);
+	uint32_t challenges_index[ROUNDS];
+	uint8_t challenges_sign[ROUNDS];
+	get_challenges(master_hash,challenges_index,challenges_sign);
 
 	// generate seeds
 	unsigned char *sk_seeds = malloc(SEED_BYTES*PKS);
@@ -138,9 +140,12 @@ void csifish_sign(const unsigned char *sk,const unsigned char *m, uint64_t mlen,
 	(void) indices;
 	mpz_t s[ROUNDS];
 	for(int i=0; i<ROUNDS; i++){
-		indices[challenges[i]] = 1;
+		indices[challenges_index[i]] = 1;
 		mpz_init(s[i]);
-		sample_mod_cn_with_seed(sk_seeds + challenges[i]*SEED_BYTES ,s[i]);
+		sample_mod_cn_with_seed(sk_seeds + challenges_index[i]*SEED_BYTES ,s[i]);
+		if(challenges_sign[i]){
+			mpz_mul_si(s[i],s[i],-1);
+		}
 		mpz_sub(r[i],s[i],r[i]);
 		mpz_fdiv_r(r[i],r[i],cn);
 
@@ -192,8 +197,13 @@ int csifish_verify(const unsigned char *pk, const unsigned char *m, uint64_t mle
 	HASH(in_buf,2*HASH_BYTES, master_hash);
 
 	// get challenges
-	uint16_t challenges[ROUNDS];
-	get_challenges(master_hash,challenges);
+	uint32_t challenges_index[ROUNDS];
+	uint8_t challenges_sign[ROUNDS];
+	get_challenges(master_hash,challenges_index,challenges_sign);
+
+
+	fp minus_one;
+	fp_sub3(&minus_one, &fp_0, &fp_1);
 
 	uint *pkcurves = malloc(sizeof(uint[PKS])); 
 	unsigned char *indices = calloc(1,PKS);
@@ -214,22 +224,26 @@ int csifish_verify(const unsigned char *pk, const unsigned char *m, uint64_t mle
 		// perform action
 		action(&end,&start,&path);
 
+		if(challenges_sign[i]){
+			fp_mul2(&end.A,&minus_one);
+		}
+
 		// decode endpoint
 		uint pkcurve;
 		fp_dec(&pkcurve,&end.A);	
 
 		// put endpoint in pkcurves, or compare to earlier found curve
-		if(indices[challenges[i]] == 0){
-			pkcurves[challenges[i]] = pkcurve;
+		if(indices[challenges_index[i]] == 0){
+			pkcurves[challenges_index[i]] = pkcurve;
 		}
-		else if( memcmp(&pkcurves[challenges[i]],&pkcurve,sizeof(uint)) ){
+		else if( memcmp(&pkcurves[challenges_index[i]],&pkcurve,sizeof(uint)) ){
 			// curve not equal to earlier found curve! reject signature
 			clear_classgroup();
 			free(indices);
 			free(pkcurves);
 			return -1;
 		}
-		indices[challenges[i]] = 1;
+		indices[challenges_index[i]] = 1;
 	}
 
 	clear_classgroup();
@@ -261,15 +275,23 @@ int csifish_verify(const unsigned char *pk, const unsigned char *m, uint64_t mle
 	HASH(m,mlen,m_hash);
 
 	// get challenges
-	uint16_t challenges[ROUNDS];
-	get_challenges(SIG_HASH(sig),challenges);
+	uint32_t challenges_index[ROUNDS];
+	uint8_t  challenges_sign[ROUNDS];
+	get_challenges(SIG_HASH(sig),challenges_index,challenges_sign);
+
+	fp minus_one;
+	fp_sub3(&minus_one, &fp_0, &fp_1);
 
 	uint  curves[ROUNDS];
 	uint* pkcurves = (uint*) PK_CURVES(pk); 
 	for(int i=0; i<ROUNDS; i++){
 		// encode starting point
 		public_key start,end;
-		fp_enc(&(start.A), &pkcurves[challenges[i]]);
+		fp_enc(&(start.A), &pkcurves[challenges_index[i]]);
+
+		if(challenges_sign[i]){
+			fp_mul2(&start.A,&minus_one);
+		}
 
 		// decode path
 		mpz_t x;

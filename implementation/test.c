@@ -87,9 +87,9 @@ int main(){
 	printf("signing cycles :      %lu \n", signCycles/KEYS/SIGNATURES_PER_KEY );
 	printf("verification cycles : %lu \n\n", verifyCycles/KEYS/SIGNATURES_PER_KEY );
 
-	printf("keygen time :       %lf \n", keygenTime/KEYS );
-	printf("signing time :      %lf \n", signTime/KEYS/SIGNATURES_PER_KEY );
-	printf("verification time : %lf \n", verifyTime/KEYS/SIGNATURES_PER_KEY );
+	printf("keygen time :       %lf ms \n", keygenTime/KEYS );
+	printf("signing time :      %lf ms \n", signTime/KEYS/SIGNATURES_PER_KEY );
+	printf("verification time : %lf ms \n", verifyTime/KEYS/SIGNATURES_PER_KEY );
 
 	free(pk);
 	free(sk);
