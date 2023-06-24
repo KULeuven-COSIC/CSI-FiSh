@@ -59,15 +59,15 @@ void csifish_keygen(unsigned char *pk, unsigned char *sk){
 
 void get_challenges(const unsigned char *hash, uint32_t *challenges_index, uint8_t *challenges_sign){
 	unsigned char tmp_hash[HASH_BYTES];
-	memcpy(tmp_hash,hash,SEED_BYTES);
+	memcpy(tmp_hash,hash,HASH_BYTES);
 
 	// slow hash function
 	for(int i=0; i<HASHES; i++){
-		HASH(tmp_hash,SEED_BYTES,tmp_hash);
+		HASH(tmp_hash,HASH_BYTES,tmp_hash);
 	}
 
 	// generate pseudorandomness
-	EXPAND(tmp_hash,SEED_BYTES,(unsigned char *) challenges_index,sizeof(uint32_t)*ROUNDS);
+	EXPAND(tmp_hash,HASH_BYTES,(unsigned char *) challenges_index,sizeof(uint32_t)*ROUNDS);
 
 	// set sign bit and zero out higher order bits
 	for(int i=0; i<ROUNDS; i++){
