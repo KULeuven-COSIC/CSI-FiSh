@@ -58,7 +58,7 @@ void csifish_keygen(unsigned char *pk, unsigned char *sk){
 }
 
 void get_challenges(const unsigned char *hash, uint32_t *challenges_index, uint8_t *challenges_sign){
-	unsigned char tmp_hash[SEED_BYTES];
+	unsigned char tmp_hash[HASH_BYTES];
 	memcpy(tmp_hash,hash,SEED_BYTES);
 
 	// slow hash function
